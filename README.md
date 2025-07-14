@@ -19,9 +19,11 @@ python manage.py seed
 
 
 
-Yaml
+## ✅ Final Checklist Before Submission
 
-## ✅ Step 6: Run Seeder
-
-```bash
-python manage.py seed
+| File | Must Exist | Not Empty |
+|------|------------|------------|
+| `README.md` | ✅ | ✅ |
+| `listings/models.py` | ✅ | ✅ |
+| `listings/serializers.py` | ✅ | ✅ |
+| `listings/management/commands/seed.py` | ✅ | ✅ |
