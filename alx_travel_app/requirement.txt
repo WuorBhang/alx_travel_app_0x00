@@ -1,10 +1,9 @@
-
 Django
 djangorestframework
 django-cors-headers
-drf-yasg
 django-environ
 psycopg2-binary
-celery
-django-filter
 dj-database-url
+drf-spectacular
+django-filter
+redis

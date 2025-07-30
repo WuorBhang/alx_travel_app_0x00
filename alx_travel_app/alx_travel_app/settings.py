@@ -1,3 +1,4 @@
+# alx_travel_app/settings.py
 
 import environ
 import os
@@ -8,7 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialize environment variables
 env = environ.Env(
-    DEBUG=(bool, False)
+    DEBUG=(bool, False),
+    ALLOWED_HOSTS=(list, []),  # Allow list parsing
 )
 
 # Read .env file
@@ -18,9 +20,12 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', default=True)
+DEBUG = env('DEBUG', default=False)
 
-ALLOWED_HOSTS = ['*']
+# Allowed hosts
+ALLOWED_HOSTS = env('ALLOWED_HOSTS') if env('ALLOWED_HOSTS') else ['localhost', '127.0.0.1']
+if not DEBUG:
+    ALLOWED_HOSTS += ['your-deployed-domain.com']  # Replace in production
 
 # Application definition
 INSTALLED_APPS = [
@@ -30,10 +35,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party
     'rest_framework',
     'corsheaders',
-    'drf_yasg',
     'django_filters',
+    'drf_spectacular',
+
+    # Local apps
     'listings',
 ]
 
@@ -68,7 +77,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'alx_travel_app.wsgi.application'
 
-# Database configuration using PostgreSQL
+# Database configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -80,10 +89,14 @@ DATABASES = {
     }
 }
 
-# If DATABASE_URL is available (Replit PostgreSQL), use it
+# Use DATABASE_URL if provided (e.g., in Heroku, Render, etc.)
 if 'DATABASE_URL' in os.environ:
     import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(os.environ['DATABASE_URL'])
+    DATABASES['default'] = dj_database_url.config(
+        default=os.environ['DATABASE_URL'],
+        conn_max_age=600,
+        ssl_require=False  # Set to True if required by your host
+    )
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -92,6 +105,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -114,8 +130,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework configuration
+# REST Framework Settings
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
@@ -123,11 +142,32 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
 }
 
-# CORS configuration
+# drf-spectacular Settings (Swagger UI / Redoc)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'ALX Travel App API',
+    'DESCRIPTION': 'API for managing travel listings, bookings, and reviews.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,  # Keeps token after page refresh
+        'docExpansion': 'list',       # Expand all endpoints by default
+    },
+    'COMPONENT_SPLIT_REQUEST': True,  # Helps with file uploads, nested data
+    'SORT_OPERATIONS': False,
+    'SERVERS': [
+        {'url': '/api', 'description': 'Development server'},
+        # Add production URL later
+    ],
+}
+
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -135,33 +175,22 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5000",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+# Allow all origins only in debug mode
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False  # Security: enforce CORS_ALLOWED_ORIGINS in production
 
-# Swagger settings
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Token': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    },
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'SUPPORTED_SUBMIT_METHODS': [
-        'get',
-        'post',
-        'put',
-        'delete',
-        'patch'
-    ],
-}
+# Optional: Allow credentials (e.g., cookies, auth headers)
+CORS_ALLOW_CREDENTIALS = True
 
-REDOC_SETTINGS = {
-    'LAZY_RENDERING': False,
-}
+# CSRF Trusted Origins (important for production when using frontend on different port)
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-# Celery Configuration (for future use)
+# Celery Configuration (for future async tasks)
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
